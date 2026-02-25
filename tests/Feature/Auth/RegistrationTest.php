@@ -23,9 +23,9 @@ class RegistrationTest extends TestCase
     public function test_user_can_register_with_valid_credentials(): void
     {
         $response = $this->post('/register', [
-            'name'                  => 'John Doe',
-            'email'                 => 'john@example.com',
-            'password'              => 'password',
+            'name' => 'John Doe',
+            'email' => 'john@example.com',
+            'password' => 'password',
             'password_confirmation' => 'password',
         ]);
 
@@ -39,9 +39,9 @@ class RegistrationTest extends TestCase
         User::factory()->create(['email' => 'john@example.com']);
 
         $response = $this->post('/register', [
-            'name'                  => 'John Doe',
-            'email'                 => 'john@example.com',
-            'password'              => 'password',
+            'name' => 'John Doe',
+            'email' => 'john@example.com',
+            'password' => 'password',
             'password_confirmation' => 'password',
         ]);
 
@@ -52,9 +52,9 @@ class RegistrationTest extends TestCase
     public function test_registration_fails_with_mismatched_passwords(): void
     {
         $response = $this->post('/register', [
-            'name'                  => 'John Doe',
-            'email'                 => 'john@example.com',
-            'password'              => 'password',
+            'name' => 'John Doe',
+            'email' => 'john@example.com',
+            'password' => 'password',
             'password_confirmation' => 'different',
         ]);
 

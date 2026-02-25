@@ -21,29 +21,29 @@ class MessageRepositoryTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->repository = new MessageRepository();
+        $this->repository = new MessageRepository;
     }
 
     // ─── Create ───────────────────────────────────────────────────────────────
 
     public function test_it_can_create_a_message(): void
     {
-        $user    = User::factory()->create();
+        $user = User::factory()->create();
         $channel = Channel::factory()->create();
 
         $message = $this->repository->create([
-            'sender_id'  => $user->id,
+            'sender_id' => $user->id,
             'channel_id' => $channel->id,
-            'content'    => 'Hello from the repository test!',
+            'content' => 'Hello from the repository test!',
         ]);
 
         $this->assertInstanceOf(Message::class, $message);
         $this->assertTrue($message->exists);
         $this->assertDatabaseHas('messages', [
-            'id'         => $message->id,
-            'sender_id'  => $user->id,
+            'id' => $message->id,
+            'sender_id' => $user->id,
             'channel_id' => $channel->id,
-            'content'    => 'Hello from the repository test!',
+            'content' => 'Hello from the repository test!',
         ]);
     }
 
@@ -72,11 +72,11 @@ class MessageRepositoryTest extends TestCase
     public function test_it_can_get_paginated_messages_for_channel(): void
     {
         $channel = Channel::factory()->create();
-        $user    = User::factory()->create();
+        $user = User::factory()->create();
 
         Message::factory()->count(5)->create([
             'channel_id' => $channel->id,
-            'sender_id'  => $user->id,
+            'sender_id' => $user->id,
         ]);
 
         // Create messages in a different channel to ensure isolation
@@ -91,23 +91,23 @@ class MessageRepositoryTest extends TestCase
     public function test_messages_are_ordered_oldest_first(): void
     {
         $channel = Channel::factory()->create();
-        $user    = User::factory()->create();
+        $user = User::factory()->create();
 
         $oldest = Message::factory()->create([
             'channel_id' => $channel->id,
-            'sender_id'  => $user->id,
+            'sender_id' => $user->id,
             'created_at' => now()->subMinutes(10),
         ]);
 
         $middle = Message::factory()->create([
             'channel_id' => $channel->id,
-            'sender_id'  => $user->id,
+            'sender_id' => $user->id,
             'created_at' => now()->subMinutes(5),
         ]);
 
         $newest = Message::factory()->create([
             'channel_id' => $channel->id,
-            'sender_id'  => $user->id,
+            'sender_id' => $user->id,
             'created_at' => now(),
         ]);
 

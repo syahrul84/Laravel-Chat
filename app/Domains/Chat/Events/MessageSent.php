@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Domains\Chat\Events;
 
 use App\Domains\Chat\Models\Message;
-use Illuminate\Broadcasting\Channel;
 use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Broadcasting\PresenceChannel;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
@@ -23,7 +22,7 @@ class MessageSent implements ShouldBroadcast
     public function broadcastOn(): array
     {
         return [
-            new PresenceChannel('channel.' . $this->message->channel_id),
+            new PresenceChannel('channel.'.$this->message->channel_id),
         ];
     }
 
@@ -35,11 +34,11 @@ class MessageSent implements ShouldBroadcast
     public function broadcastWith(): array
     {
         return [
-            'id'         => $this->message->id,
-            'content'    => $this->message->content,
+            'id' => $this->message->id,
+            'content' => $this->message->content,
             'created_at' => $this->message->created_at->toISOString(),
-            'sender'     => [
-                'id'   => $this->message->sender->id,
+            'sender' => [
+                'id' => $this->message->sender->id,
                 'name' => $this->message->sender->name,
             ],
         ];

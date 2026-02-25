@@ -19,11 +19,11 @@ class ChannelFactory extends Factory
         $name = $this->faker->unique()->words(2, true);
 
         return [
-            'name'        => $name,
-            'slug'        => Str::slug($name),
+            'name' => $name,
+            'slug' => Str::slug($name),
             'description' => $this->faker->sentence(),
-            'type'        => 'public',
-            'created_by'  => User::factory(),
+            'type' => 'public',
+            'created_by' => User::factory(),
         ];
     }
 

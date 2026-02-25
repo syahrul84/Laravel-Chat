@@ -30,9 +30,9 @@ class MessageService
         }
 
         $message = $this->messages->create([
-            'sender_id'  => $sender->id,
+            'sender_id' => $sender->id,
             'channel_id' => $channel->id,
-            'content'    => $content,
+            'content' => $content,
         ]);
 
         $message->load('sender');

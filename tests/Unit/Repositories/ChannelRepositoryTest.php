@@ -20,7 +20,7 @@ class ChannelRepositoryTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->repository = new ChannelRepository();
+        $this->repository = new ChannelRepository;
     }
 
     // ─── Create ───────────────────────────────────────────────────────────────
@@ -30,21 +30,21 @@ class ChannelRepositoryTest extends TestCase
         $user = User::factory()->create();
 
         $channel = $this->repository->create([
-            'name'        => 'general',
+            'name' => 'general',
             'description' => 'General discussion',
-            'type'        => 'public',
-            'created_by'  => $user->id,
+            'type' => 'public',
+            'created_by' => $user->id,
         ]);
 
         $this->assertInstanceOf(Channel::class, $channel);
         $this->assertTrue($channel->exists);
         $this->assertDatabaseHas('channels', [
-            'id'          => $channel->id,
-            'name'        => 'general',
-            'slug'        => 'general',
+            'id' => $channel->id,
+            'name' => 'general',
+            'slug' => 'general',
             'description' => 'General discussion',
-            'type'        => 'public',
-            'created_by'  => $user->id,
+            'type' => 'public',
+            'created_by' => $user->id,
         ]);
     }
 
@@ -100,20 +100,20 @@ class ChannelRepositoryTest extends TestCase
     public function test_it_can_add_member_to_channel(): void
     {
         $channel = Channel::factory()->create();
-        $user    = User::factory()->create();
+        $user = User::factory()->create();
 
         $this->repository->addMember($channel, $user);
 
         $this->assertDatabaseHas('channel_user', [
             'channel_id' => $channel->id,
-            'user_id'    => $user->id,
+            'user_id' => $user->id,
         ]);
     }
 
     public function test_it_can_check_membership(): void
     {
         $channel = Channel::factory()->create();
-        $member  = User::factory()->create();
+        $member = User::factory()->create();
         $stranger = User::factory()->create();
 
         $this->repository->addMember($channel, $member);
