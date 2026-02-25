@@ -1,0 +1,24 @@
+# Development overrides — automatically merged by docker compose
+# This file adds the Vite dev server for hot module replacement (HMR)
+
+services:
+
+  # ─── Vite Dev Server (HMR) ──────────────────────────────────────────────────
+  node:
+    image: node:20-alpine
+    container_name: chat_node
+    working_dir: /var/www/html
+    command: sh -c "npm install && npm run dev"
+    volumes:
+      - .:/var/www/html
+      - node_modules:/var/www/html/node_modules
+    ports:
+      - "5173:5173"
+    environment:
+      - VITE_HOST=0.0.0.0
+    networks:
+      - chatnet
+
+volumes:
+  node_modules:
+    driver: local
