@@ -11,7 +11,6 @@ use App\Domains\Chat\Services\ChannelService;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Chat\CreateChannelRequest;
 use Illuminate\Auth\Access\AuthorizationException;
-use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -28,17 +27,17 @@ class ChannelController extends Controller
     public function index(Request $request): Response
     {
         return Inertia::render('Chat/Index', [
-            'channels'     => $this->channelService->listPublic(),
-            'myChannels'   => $this->channelService->listForUser($request->user()),
+            'channels' => $this->channelService->listPublic(),
+            'myChannels' => $this->channelService->listForUser($request->user()),
         ]);
     }
 
     public function store(CreateChannelRequest $request): RedirectResponse
     {
         $channel = $this->channelService->create(
-            creator:     $request->user(),
-            name:        $request->string('name')->toString(),
-            type:        $request->string('type', 'public')->toString(),
+            creator: $request->user(),
+            name: $request->string('name')->toString(),
+            type: $request->string('type', 'public')->toString(),
             description: $request->string('description')->toString() ?: null,
         );
 
@@ -52,8 +51,8 @@ class ChannelController extends Controller
         }
 
         return Inertia::render('Chat/Channel', [
-            'channel'    => $channel->load('creator'),
-            'messages'   => $this->messageRepository->forChannel($channel),
+            'channel' => $channel->load('creator'),
+            'messages' => $this->messageRepository->forChannel($channel),
             'myChannels' => $this->channelService->listForUser($request->user()),
         ]);
     }

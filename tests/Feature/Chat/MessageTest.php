@@ -22,7 +22,7 @@ class MessageTest extends TestCase
     {
         Event::fake();
 
-        $user    = User::factory()->create();
+        $user = User::factory()->create();
         $channel = Channel::factory()->create();
         $channel->members()->attach($user->id, ['joined_at' => now()]);
 
@@ -32,9 +32,9 @@ class MessageTest extends TestCase
 
         $response->assertStatus(200);
         $this->assertDatabaseHas('messages', [
-            'sender_id'  => $user->id,
+            'sender_id' => $user->id,
             'channel_id' => $channel->id,
-            'content'    => 'Hello world!',
+            'content' => 'Hello world!',
         ]);
     }
 
@@ -42,7 +42,7 @@ class MessageTest extends TestCase
     {
         Event::fake();
 
-        $user    = User::factory()->create();
+        $user = User::factory()->create();
         $channel = Channel::factory()->create();
         $channel->members()->attach($user->id, ['joined_at' => now()]);
 
@@ -55,7 +55,7 @@ class MessageTest extends TestCase
 
     public function test_non_member_cannot_send_a_message(): void
     {
-        $user    = User::factory()->create();
+        $user = User::factory()->create();
         $channel = Channel::factory()->create();
 
         $response = $this->actingAs($user)->post("/channels/{$channel->id}/messages", [
@@ -68,7 +68,7 @@ class MessageTest extends TestCase
 
     public function test_message_cannot_be_empty(): void
     {
-        $user    = User::factory()->create();
+        $user = User::factory()->create();
         $channel = Channel::factory()->create();
         $channel->members()->attach($user->id, ['joined_at' => now()]);
 
@@ -84,13 +84,13 @@ class MessageTest extends TestCase
 
     public function test_member_can_load_messages_for_channel(): void
     {
-        $user    = User::factory()->create();
+        $user = User::factory()->create();
         $channel = Channel::factory()->create();
         $channel->members()->attach($user->id, ['joined_at' => now()]);
 
         Message::factory()->count(5)->create([
             'channel_id' => $channel->id,
-            'sender_id'  => $user->id,
+            'sender_id' => $user->id,
         ]);
 
         $response = $this->actingAs($user)->get("/channels/{$channel->id}/messages");

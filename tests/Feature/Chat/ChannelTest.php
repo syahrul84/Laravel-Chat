@@ -69,7 +69,7 @@ class ChannelTest extends TestCase
 
     public function test_channel_creation_fails_with_duplicate_name(): void
     {
-        $user  = User::factory()->create();
+        $user = User::factory()->create();
         Channel::factory()->create(['name' => 'general']);
 
         $response = $this->actingAs($user)->post('/channels', ['name' => 'general']);
@@ -81,7 +81,7 @@ class ChannelTest extends TestCase
 
     public function test_user_can_join_a_public_channel(): void
     {
-        $user    = User::factory()->create();
+        $user = User::factory()->create();
         $channel = Channel::factory()->create(['type' => 'public']);
 
         $response = $this->actingAs($user)->post("/channels/{$channel->id}/join");
@@ -92,7 +92,7 @@ class ChannelTest extends TestCase
 
     public function test_user_cannot_join_a_private_channel(): void
     {
-        $user    = User::factory()->create();
+        $user = User::factory()->create();
         $channel = Channel::factory()->private()->create();
 
         $response = $this->actingAs($user)->post("/channels/{$channel->id}/join");
@@ -105,7 +105,7 @@ class ChannelTest extends TestCase
 
     public function test_member_can_view_channel(): void
     {
-        $user    = User::factory()->create();
+        $user = User::factory()->create();
         $channel = Channel::factory()->create();
         $channel->members()->attach($user->id, ['joined_at' => now()]);
 
@@ -120,7 +120,7 @@ class ChannelTest extends TestCase
 
     public function test_non_member_cannot_view_channel(): void
     {
-        $user    = User::factory()->create();
+        $user = User::factory()->create();
         $channel = Channel::factory()->create();
 
         $response = $this->actingAs($user)->get("/channels/{$channel->id}");

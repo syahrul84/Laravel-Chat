@@ -32,7 +32,7 @@ class MessageServiceTest extends TestCase
     {
         Event::fake();
 
-        $user    = User::factory()->create();
+        $user = User::factory()->create();
         $channel = Channel::factory()->create();
         $channel->members()->attach($user->id, ['joined_at' => now()]);
 
@@ -40,10 +40,10 @@ class MessageServiceTest extends TestCase
 
         $this->assertInstanceOf(Message::class, $message);
         $this->assertDatabaseHas('messages', [
-            'id'         => $message->id,
-            'sender_id'  => $user->id,
+            'id' => $message->id,
+            'sender_id' => $user->id,
             'channel_id' => $channel->id,
-            'content'    => 'Hello from service test!',
+            'content' => 'Hello from service test!',
         ]);
 
         Event::assertDispatched(MessageSent::class, function (MessageSent $event) use ($message) {
@@ -53,7 +53,7 @@ class MessageServiceTest extends TestCase
 
     public function test_it_throws_authorization_exception_for_non_member(): void
     {
-        $user    = User::factory()->create();
+        $user = User::factory()->create();
         $channel = Channel::factory()->create();
 
         // User is NOT a member of the channel
@@ -67,7 +67,7 @@ class MessageServiceTest extends TestCase
     {
         Event::fake();
 
-        $user    = User::factory()->create();
+        $user = User::factory()->create();
         $channel = Channel::factory()->create();
         $channel->members()->attach($user->id, ['joined_at' => now()]);
 

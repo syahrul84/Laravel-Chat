@@ -31,7 +31,7 @@ class MessageController extends Controller
         try {
             $message = $this->messageService->send(
                 channel: $channel,
-                sender:  $request->user(),
+                sender: $request->user(),
                 content: $request->string('content')->toString(),
             );
         } catch (AuthorizationException $e) {
@@ -39,11 +39,11 @@ class MessageController extends Controller
         }
 
         return response()->json([
-            'id'         => $message->id,
-            'content'    => $message->content,
+            'id' => $message->id,
+            'content' => $message->content,
             'created_at' => $message->created_at->toISOString(),
-            'sender'     => [
-                'id'   => $message->sender->id,
+            'sender' => [
+                'id' => $message->sender->id,
                 'name' => $message->sender->name,
             ],
         ]);

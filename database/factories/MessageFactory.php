@@ -17,10 +17,10 @@ class MessageFactory extends Factory
     public function definition(): array
     {
         return [
-            'sender_id'  => User::factory(),
+            'sender_id' => User::factory(),
             'channel_id' => Channel::factory(),
-            'content'    => $this->faker->sentence(),
-            'read_at'    => null,
+            'content' => $this->faker->sentence(),
+            'read_at' => null,
         ];
     }
 }

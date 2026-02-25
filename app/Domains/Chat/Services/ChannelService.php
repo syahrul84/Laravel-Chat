@@ -19,10 +19,10 @@ class ChannelService
     public function create(User $creator, string $name, string $type = 'public', ?string $description = null): Channel
     {
         $channel = $this->channels->create([
-            'name'        => $name,
+            'name' => $name,
             'description' => $description,
-            'type'        => $type,
-            'created_by'  => $creator->id,
+            'type' => $type,
+            'created_by' => $creator->id,
         ]);
 
         // Creator automatically joins their own channel

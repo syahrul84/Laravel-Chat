@@ -32,12 +32,12 @@ class LoginTest extends TestCase
     public function test_user_can_login_with_valid_credentials(): void
     {
         $user = User::factory()->create([
-            'email'    => 'john@example.com',
+            'email' => 'john@example.com',
             'password' => bcrypt('password'),
         ]);
 
         $response = $this->post('/login', [
-            'email'    => 'john@example.com',
+            'email' => 'john@example.com',
             'password' => 'password',
         ]);
 
@@ -50,7 +50,7 @@ class LoginTest extends TestCase
         User::factory()->create(['email' => 'john@example.com']);
 
         $response = $this->post('/login', [
-            'email'    => 'john@example.com',
+            'email' => 'john@example.com',
             'password' => 'wrong-password',
         ]);
 
