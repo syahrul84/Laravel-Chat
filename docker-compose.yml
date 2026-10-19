@@ -1,3 +1,5 @@
+name: laravel-chat
+
 services:
 
   # ─── PHP-FPM Application ────────────────────────────────────────────────────
