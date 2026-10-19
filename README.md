@@ -2,6 +2,21 @@
 
 > A real-time group chat system built to demonstrate senior-level Laravel architecture — clean domain separation, repository pattern, event-driven broadcasting, and strict TDD discipline.
 
+![A channel with its member list open and unread badges in the sidebar](docs/screenshots/channel.jpg)
+
+---
+
+## Screenshots
+
+| | |
+|---|---|
+| **Home: returning user**<br>Conversations with something new come first; red badges show unread counts. | **Home: new user**<br>Getting-started options when you haven't joined anything yet. |
+| ![Home page for a returning user](docs/screenshots/home.jpg) | ![Home page for a new user](docs/screenshots/home-new-user.jpg) |
+| **Direct messages and live alerts**<br>A message from someone else pops up wherever you are and bumps their badge. | **Starting a direct message**<br>Search people by name from the sidebar (names only, never emails). |
+| ![Direct message with a live alert](docs/screenshots/direct-message-alert.jpg) | ![People search in the sidebar](docs/screenshots/people-search.jpg) |
+| **Browse channels**<br>Join public channels or open ones you're already in. | **Sign in** |
+| ![Browse channels](docs/screenshots/browse-channels.jpg) | ![Sign in page](docs/screenshots/login.jpg) |
+
 ---
 
 ## Why This Exists
@@ -59,13 +74,13 @@ PHP-FPM (app)                channel.{channel_id}
 
 | Layer | Technology | Why |
 |-------|-----------|-----|
-| Backend | Laravel 12 / PHP 8.4 | Modern PHP, first-party WebSocket support |
+| Backend | Laravel 13 / PHP 8.4 | Modern PHP, first-party WebSocket support |
 | WebSockets | Laravel Reverb | Self-hosted, Redis-backed, no third-party cost |
 | Frontend | Inertia.js + Vue 3 | SPA feel without maintaining a separate API |
 | Styling | Tailwind CSS 4 | Utility-first, zero unused CSS in production |
 | Queue & cache | Redis 7 | Unified driver for queues, sessions, and broadcast scaling |
 | Database | MySQL 8 | Relational integrity; composite indexes on hot queries |
-| Testing | PHPUnit 11 + ParaTest | Full parallel test suite, zero mocks of the real database |
+| Testing | PHPUnit 13 + ParaTest | Full parallel test suite, zero mocks of the real database |
 | Code style | Laravel Pint (PSR-12) | Enforced in CI — no style debates |
 | Runtime | Docker Compose (7 services) | Exact parity between dev, CI, and production |
 
@@ -128,16 +143,34 @@ Services are the center of gravity. They coordinate repositories, authorization 
 |--------|-------------|
 | `create(User, string $name, string $type, ?string $description)` | Creates the channel, auto-adds creator as first member |
 | `listPublic(int $perPage)` | Returns paginated public channels |
-| `listForUser(User, int $perPage)` | Returns channels the user has joined |
+| `listForUser(User, int $perPage)` | Returns public/private channels the user has joined (direct messages excluded) |
 | `join(Channel, User)` | Adds user to a public channel; throws `AuthorizationException` for private channels |
 | `leave(Channel, User)` | Removes user from channel |
+| `invite(Channel, User $inviter, User $invitee)` | Adds a user to the channel (the only way into a private one); throws `AuthorizationException` if the inviter is not a member or the channel is a direct message |
+| `close(Channel, User)` | The sidebar "X": leaves a channel; for a direct message, hides it and clears its history **for that user only** (it reopens when a new message arrives) |
+| `members(Channel)` | Members (id, name) ordered by name |
+
+### `DirectMessageService`
+
+A direct message is a channel of type `direct` with exactly two members, no name, and a unique `direct_key` (`"{lowerUserId}:{higherUserId}"`) so each pair of users has one conversation.
+
+| Method | What it does |
+|--------|-------------|
+| `start(User $from, User $to)` | Finds or creates the pair's conversation and (re-)adds both members; throws `InvalidArgumentException` for yourself |
+| `listForUser(User)` | The user's visible conversations, each with the other person as `partner` |
+| `partnerOf(Channel, User)` | The other person in a conversation |
+
+### `SidebarService`
+
+`for(User)` builds the sidebar shared with every page (Inertia prop `sidebar`): joined channels and direct messages, each with an `unread` count.
 
 ### `MessageService`
 
 | Method | What it does |
 |--------|-------------|
-| `send(Channel, User $sender, string $content)` | Verifies sender is member, persists message, broadcasts `MessageSent`, returns message with sender loaded |
-| `getMessages(Channel, int $perPage)` | Returns paginated message history (oldest-first) |
+| `send(Channel, User $sender, string $content)` | Verifies sender is member, persists message, marks it read for the sender, reopens a closed direct message, broadcasts `MessageSent` and `ChannelActivity`, returns message with sender loaded |
+| `getMessages(Channel, User $member, int $perPage)` | Returns the member's paginated history (minus anything they cleared): page 1 is the newest messages, each page ordered oldest-first |
+| `markRead(Channel, User)` | Marks everything in the channel as read for the member |
 
 ---
 
@@ -145,7 +178,7 @@ Services are the center of gravity. They coordinate repositories, authorization 
 
 ### `MessageSent`
 
-The only broadcastable event. Dispatched by `MessageService::send()` on every new message.
+Dispatched by `MessageService::send()` on every new message, for whoever has the conversation open.
 
 ```php
 class MessageSent implements ShouldBroadcast
@@ -178,13 +211,18 @@ class MessageSent implements ShouldBroadcast
 }
 ```
 
+### `ChannelActivity`
+
+Also dispatched by `MessageService::send()`, once, on the **personal channel of every other member** (`App.Models.User.{id}`), as `.channel.activity` with `channel_id`, `channel_type`, `channel_name`, `message_id`, a 100-character `preview` and the `sender`. The layout uses it wherever the user is: it bumps the sidebar's red unread badge, adds a new direct-message conversation to the sidebar, and shows a pop-up alert for direct messages.
+
+Unread state lives on the `channel_user` pivot as `last_read_message_id` (message ids, not timestamps, so it is exact). Opening a conversation marks it read; the open page also calls `POST /channels/{channel}/read` when a live message arrives.
+
 **Channel naming conventions:**
 
 | Channel | Type | Current use |
 |---------|------|-------------|
-| `channel.{id}` | Presence | Chat room — messages + who's online |
-| `App.Models.User.{id}` | Private | Per-user notifications (reserved) |
-| `private.dm.{minId}.{maxId}` | Private | Direct messages (IDs sorted ascending, reserved) |
+| `channel.{id}` | Presence | Chat room or direct message — messages + who's online |
+| `App.Models.User.{id}` | Private | Per-user activity: unread badges and direct-message alerts |
 
 ---
 
@@ -197,6 +235,11 @@ Authorization for channel actions is enforced directly in services rather than i
 | Only members can send messages | `MessageService::send()` | Checks `ChannelRepository::isMember()`, throws `AuthorizationException` |
 | Only public channels can be joined freely | `ChannelService::join()` | Checks `Channel::isPublic()`, throws `AuthorizationException` |
 | Only members can view a channel | `ChannelController::show()` | Checks `ChannelRepository::isMember()`, aborts 403 |
+| Only members can read a channel's message history | `MessageController::index()` | Checks `ChannelRepository::isMember()`, aborts 403 |
+| Only members can invite others | `ChannelService::invite()` | Checks `ChannelRepository::isMember()`, throws `AuthorizationException` |
+| Nobody can be invited into a direct message | `ChannelService::invite()` | Checks `Channel::isDirect()`, throws `AuthorizationException` |
+| You cannot message yourself | `StartDirectMessageRequest` | `not_in` rule on `user_id`, 422 |
+| People search returns names only | `UserRepository::search()` | Selects `id`, `name`; email only matches exactly, never returned |
 
 A dedicated `ChannelPolicy` is the natural next step if the authorization matrix grows (e.g. admin roles, channel moderation).
 
@@ -355,10 +398,11 @@ users
   id · name · email · password · remember_token · timestamps
 
 channels
-  id · name (unique) · slug (unique, auto-generated)
-  description · type (enum: public|private)
+  id · name (unique, null for direct messages) · slug (unique, auto-generated)
+  description · type (enum: public|private|direct)
+  direct_key (unique, "{lowerUserId}:{higherUserId}" for direct messages)
   created_by → users.id (cascade)
-  index: type · timestamps
+  index: type · timestamps (updated_at bumped by each new message)
 
 messages
   id · content · read_at
@@ -370,6 +414,9 @@ channel_user (pivot)
   channel_id → channels.id (cascade)
   user_id    → users.id    (cascade)
   joined_at
+  last_read_message_id   — unread = messages from others above this id
+  cleared_message_id     — history up to this id is hidden for this member
+  hidden_at              — direct message closed with "X" (cleared on a new message)
   primary key: (channel_id, user_id)
 ```
 
@@ -413,7 +460,7 @@ make composer cmd="..."    # any composer command
 | `redis` | Redis 7 | Queues, cache, sessions, broadcast pub/sub |
 | `queue` | PHP 8.4-FPM Alpine | Queue worker (`queue:work redis`) |
 | `reverb` | PHP 8.4-FPM Alpine | WebSocket server (`reverb:start`) |
-| `node` | Node 20 Alpine | Vite HMR in development |
+| `node` | Node 24 Alpine | Vite HMR in development |
 
 ---
 

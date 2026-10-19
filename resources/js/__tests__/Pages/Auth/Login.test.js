@@ -12,6 +12,7 @@ vi.mock('@inertiajs/vue3', () => ({
         errors: {},
         reset: vi.fn(),
     }),
+    Head: { render: () => null },
 }));
 
 describe('Login.vue', () => {

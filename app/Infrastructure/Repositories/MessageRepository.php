@@ -16,12 +16,16 @@ class MessageRepository implements MessageRepositoryInterface
         return Message::create($data);
     }
 
-    public function forChannel(Channel $channel, int $perPage = 50): LengthAwarePaginator
+    public function forChannel(Channel $channel, int $perPage = 50, ?int $afterId = null): LengthAwarePaginator
     {
-        return $channel->messages()
-            ->with('sender')
-            ->oldest()
+        $page = $channel->messages()
+            ->with('sender:id,name')
+            ->when($afterId, fn ($query) => $query->where('id', '>', $afterId))
+            ->latest()
+            ->latest('id')
             ->paginate($perPage);
+
+        return $page->setCollection($page->getCollection()->reverse()->values());
     }
 
     public function findById(int $id): ?Message

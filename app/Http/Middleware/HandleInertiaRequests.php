@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Middleware;
 
+use App\Domains\Chat\Services\SidebarService;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -28,6 +29,9 @@ class HandleInertiaRequests extends Middleware
             'auth' => [
                 'user' => $request->user()?->only('id', 'name', 'email'),
             ],
+            'sidebar' => fn () => $request->user()
+                ? app(SidebarService::class)->for($request->user())
+                : null,
             'flash' => [
                 'success' => fn () => $request->session()->get('success'),
                 'error' => fn () => $request->session()->get('error'),

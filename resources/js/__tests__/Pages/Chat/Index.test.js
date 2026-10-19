@@ -139,34 +139,8 @@ describe('Index.vue', () => {
         expect(joinButtons).toHaveLength(2);
     });
 
-    it('renders sidebar with my channels', () => {
-        const wrapper = mountIndex({
-            channels: { data: sampleChannels },
-            myChannels: { data: myChannels },
-        });
 
-        const sidebar = wrapper.find('.sidebar');
-        expect(sidebar.text()).toContain('My Channels');
-        expect(sidebar.text()).toContain('general');
-    });
 
-    it('shows empty sidebar message when user has no channels', () => {
-        const wrapper = mountIndex({
-            channels: { data: sampleChannels },
-            myChannels: { data: [] },
-        });
-
-        const sidebar = wrapper.find('.sidebar');
-        expect(sidebar.text()).toContain('No channels yet');
-    });
-
-    it('renders the create channel button in the sidebar', () => {
-        const wrapper = mountIndex();
-
-        const sidebar = wrapper.find('.sidebar');
-        const plusButton = sidebar.findAll('button').find((b) => b.text() === '+');
-        expect(plusButton).toBeTruthy();
-    });
 
     it('renders hash symbol before each channel name', () => {
         const wrapper = mountIndex({
@@ -179,4 +153,33 @@ describe('Index.vue', () => {
         const hashTexts = hashSpans.map((el) => el.text());
         expect(hashTexts.filter((t) => t === '#').length).toBeGreaterThanOrEqual(3);
     });
+
+    it('shows pagination links when there are more public channels', () => {
+        const wrapper = mountIndex({
+            channels: { data: sampleChannels, current_page: 1, last_page: 3 },
+        });
+
+        const next = wrapper.findAll('a').find((a) => a.text().includes('Next'));
+        expect(next.attributes('href')).toBe('/channels?page=2');
+        expect(wrapper.text()).toContain('Page 1 of 3');
+        expect(wrapper.findAll('a').some((a) => a.text().includes('Previous'))).toBe(false);
+    });
+
+    it('hides pagination when there is a single page', () => {
+        const wrapper = mountIndex({
+            channels: { data: sampleChannels, current_page: 1, last_page: 1 },
+        });
+
+        expect(wrapper.text()).not.toContain('Page 1 of');
+    });
+
+    it('uses the singular for a channel with one member', () => {
+        const wrapper = mountIndex({
+            channels: { data: [{ id: 40, name: 'solo', description: null, members_count: 1 }] },
+        });
+
+        expect(wrapper.text()).toContain('1 member');
+        expect(wrapper.text()).not.toContain('1 members');
+    });
 });
+

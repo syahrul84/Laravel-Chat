@@ -22,6 +22,9 @@ class Message extends Model
 
     protected $fillable = ['sender_id', 'channel_id', 'content', 'read_at'];
 
+    // Bumps the channel's updated_at so conversations can be ordered by latest activity
+    protected $touches = ['channel'];
+
     protected $casts = [
         'read_at' => 'datetime',
     ];

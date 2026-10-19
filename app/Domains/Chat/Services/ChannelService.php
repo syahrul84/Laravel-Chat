@@ -8,6 +8,7 @@ use App\Domains\Chat\Models\Channel;
 use App\Domains\Chat\Repositories\ChannelRepositoryInterface;
 use App\Models\User;
 use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Pagination\LengthAwarePaginator;
 
 class ChannelService
@@ -56,5 +57,44 @@ class ChannelService
     public function leave(Channel $channel, User $user): void
     {
         $this->channels->removeMember($channel, $user);
+    }
+
+    /**
+     * The sidebar "X": a direct message is hidden and its history cleared for this user only
+     * (it reopens when a new message arrives); a channel is left.
+     */
+    public function close(Channel $channel, User $user): void
+    {
+        if ($channel->isDirect()) {
+            $this->channels->hideAndClear($channel, $user);
+
+            return;
+        }
+
+        $this->channels->removeMember($channel, $user);
+    }
+
+    /**
+     * @return Collection<int, User>
+     */
+    public function members(Channel $channel): Collection
+    {
+        return $this->channels->members($channel);
+    }
+
+    /**
+     * @throws AuthorizationException
+     */
+    public function invite(Channel $channel, User $inviter, User $invitee): void
+    {
+        if ($channel->isDirect()) {
+            throw new AuthorizationException('Direct messages are between two people only.');
+        }
+
+        if (! $this->channels->isMember($channel, $inviter)) {
+            throw new AuthorizationException('Only channel members can invite others.');
+        }
+
+        $this->channels->addMember($channel, $invitee);
     }
 }

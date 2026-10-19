@@ -34,6 +34,33 @@ class ChannelTest extends TestCase
         );
     }
 
+    public function test_channel_pages_do_not_expose_creator_email(): void
+    {
+        $creator = User::factory()->create();
+        $channel = Channel::factory()->create(['created_by' => $creator->id]);
+        $channel->members()->attach($creator->id, ['joined_at' => now()]);
+
+        $this->actingAs($creator)->get('/channels')
+            ->assertInertia(fn ($page) => $page->where('channels.data.0.creator', ['id' => $creator->id, 'name' => $creator->name]));
+        $this->actingAs($creator)->get("/channels/{$channel->id}")
+            ->assertInertia(fn ($page) => $page->where('channel.creator', ['id' => $creator->id, 'name' => $creator->name]));
+    }
+
+    public function test_browsing_public_pages_does_not_page_my_channels(): void
+    {
+        $user = User::factory()->create();
+        $mine = Channel::factory()->create();
+        $mine->members()->attach($user->id, ['joined_at' => now()]);
+        Channel::factory()->count(25)->create();
+
+        $response = $this->actingAs($user)->get('/channels?page=2');
+
+        $response->assertInertia(fn ($page) => $page
+            ->where('channels.current_page', 2)
+            ->has('myChannels.data', 1)
+        );
+    }
+
     // ─── Create ──────────────────────────────────────────────────────────────
 
     public function test_guest_cannot_create_a_channel(): void
@@ -126,5 +153,91 @@ class ChannelTest extends TestCase
         $response = $this->actingAs($user)->get("/channels/{$channel->id}");
 
         $response->assertForbidden();
+    }
+
+    // ─── Slugs ───────────────────────────────────────────────────────────────
+
+    public function test_channels_whose_names_share_a_slug_can_both_be_created(): void
+    {
+        $user = User::factory()->create();
+
+        $this->actingAs($user)->post('/channels', ['name' => 'Room'])->assertRedirect();
+        $this->actingAs($user)->post('/channels', ['name' => 'Room!'])->assertRedirect();
+
+        $this->assertDatabaseCount('channels', 2);
+        $this->assertNotSame(
+            Channel::where('name', 'Room')->value('slug'),
+            Channel::where('name', 'Room!')->value('slug'),
+        );
+    }
+
+    public function test_channels_named_only_with_symbols_can_be_created(): void
+    {
+        $user = User::factory()->create();
+
+        $this->actingAs($user)->post('/channels', ['name' => '!!!'])->assertRedirect();
+        $this->actingAs($user)->post('/channels', ['name' => '???'])->assertRedirect();
+
+        $this->assertDatabaseCount('channels', 2);
+        $this->assertNotContains('', Channel::pluck('slug')->all());
+    }
+
+    // ─── Leave ───────────────────────────────────────────────────────────────
+
+    public function test_member_can_leave_a_channel(): void
+    {
+        $user = User::factory()->create();
+        $channel = Channel::factory()->create();
+        $channel->members()->attach($user->id, ['joined_at' => now()]);
+
+        $response = $this->actingAs($user)->post("/channels/{$channel->id}/leave");
+
+        $response->assertRedirect(route('channels.index'));
+        $this->assertFalse($channel->fresh()->hasMember($user));
+    }
+
+    // ─── Invite ──────────────────────────────────────────────────────────────
+
+    public function test_member_can_invite_a_user_to_a_private_channel(): void
+    {
+        $member = User::factory()->create();
+        $invitee = User::factory()->create();
+        $channel = Channel::factory()->private()->create();
+        $channel->members()->attach($member->id, ['joined_at' => now()]);
+
+        $response = $this->actingAs($member)->post("/channels/{$channel->id}/members", [
+            'email' => $invitee->email,
+        ]);
+
+        $response->assertRedirect(route('channels.show', $channel));
+        $this->assertTrue($channel->fresh()->hasMember($invitee));
+        $this->actingAs($invitee)->get("/channels/{$channel->id}")->assertOk();
+    }
+
+    public function test_non_member_cannot_invite_to_a_channel(): void
+    {
+        $outsider = User::factory()->create();
+        $invitee = User::factory()->create();
+        $channel = Channel::factory()->private()->create();
+
+        $response = $this->actingAs($outsider)->post("/channels/{$channel->id}/members", [
+            'email' => $invitee->email,
+        ]);
+
+        $response->assertForbidden();
+        $this->assertFalse($channel->fresh()->hasMember($invitee));
+    }
+
+    public function test_invite_requires_an_existing_user_email(): void
+    {
+        $member = User::factory()->create();
+        $channel = Channel::factory()->private()->create();
+        $channel->members()->attach($member->id, ['joined_at' => now()]);
+
+        $response = $this->actingAs($member)->post("/channels/{$channel->id}/members", [
+            'email' => 'nobody@example.com',
+        ]);
+
+        $response->assertSessionHasErrors('email');
     }
 }

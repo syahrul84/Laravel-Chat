@@ -12,8 +12,13 @@ interface MessageRepositoryInterface
 {
     public function create(array $data): Message;
 
-    /** @return LengthAwarePaginator<Message> */
-    public function forChannel(Channel $channel, int $perPage = 50): LengthAwarePaginator;
+    /**
+     * Page 1 holds the newest messages; each page's items are ordered oldest-first for display.
+     * Messages with an id up to $afterId (a member's cleared history) are left out.
+     *
+     * @return LengthAwarePaginator<Message>
+     */
+    public function forChannel(Channel $channel, int $perPage = 50, ?int $afterId = null): LengthAwarePaginator;
 
     public function findById(int $id): ?Message;
 }

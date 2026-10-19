@@ -26,6 +26,8 @@ export default defineConfig({
             host: 'localhost',
         },
         watch: {
+            // Docker for Mac bind mounts drop events for editors that save by replacing the file
+            usePolling: process.env.VITE_USE_POLLING === 'true',
             ignored: ['**/storage/framework/views/**'],
         },
     },

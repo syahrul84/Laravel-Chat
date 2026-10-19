@@ -1,5 +1,5 @@
 <script setup>
-import { useForm } from '@inertiajs/vue3';
+import { useForm, Head } from '@inertiajs/vue3';
 
 const form = useForm({
     name: '',
@@ -12,6 +12,7 @@ const submit = () => form.post('/register');
 </script>
 
 <template>
+    <Head title="Create account" />
     <div class="min-h-screen flex items-center justify-center bg-gray-50">
         <div class="w-full max-w-md">
             <div class="text-center mb-8">

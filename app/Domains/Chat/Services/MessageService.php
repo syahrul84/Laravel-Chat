@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domains\Chat\Services;
 
+use App\Domains\Chat\Events\ChannelActivity;
 use App\Domains\Chat\Events\MessageSent;
 use App\Domains\Chat\Models\Channel;
 use App\Domains\Chat\Models\Message;
@@ -35,15 +36,35 @@ class MessageService
             'content' => $content,
         ]);
 
-        $message->load('sender');
+        $message->load('sender', 'channel');
+
+        $this->channels->markRead($channel, $sender);
+
+        // A closed direct message reopens for both people when a new message arrives
+        if ($channel->isDirect()) {
+            $this->channels->unhide($channel);
+        }
 
         broadcast(new MessageSent($message))->toOthers();
+
+        $recipients = array_values(array_diff($this->channels->memberIds($channel), [$sender->id]));
+        if ($recipients !== []) {
+            broadcast(new ChannelActivity($message, $recipients));
+        }
 
         return $message;
     }
 
-    public function getMessages(Channel $channel, int $perPage = 50): LengthAwarePaginator
+    /**
+     * The member's view of the history: anything they cleared is left out.
+     */
+    public function getMessages(Channel $channel, User $member, int $perPage = 50): LengthAwarePaginator
     {
-        return $this->messages->forChannel($channel, $perPage);
+        return $this->messages->forChannel($channel, $perPage, $this->channels->clearedMessageId($channel, $member));
+    }
+
+    public function markRead(Channel $channel, User $member): void
+    {
+        $this->channels->markRead($channel, $member);
     }
 }

@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed } from 'vue';
-import { usePage, useForm } from '@inertiajs/vue3';
+import { usePage, useForm, Head } from '@inertiajs/vue3';
 import ChatLayout from '@/Layouts/ChatLayout.vue';
 
 const props = defineProps({
@@ -13,7 +13,8 @@ const flash = computed(() => page.props.flash);
 const myChannelIds = computed(() => new Set((props.myChannels?.data ?? []).map(c => c.id)));
 
 // ─── Create channel form ──────────────────────────────────────────────────────
-const showCreate = ref(false);
+// The sidebar's "+" links here with ?create=1
+const showCreate = ref(new URLSearchParams(window.location.search).has('create'));
 const form = useForm({
     name: '',
     description: '',
@@ -41,36 +42,14 @@ function joinChannel(channel) {
 </script>
 
 <template>
+    <Head title="Channels" />
     <ChatLayout>
-        <!-- Sidebar: my channels -->
-        <template #sidebar>
-            <div class="flex items-center justify-between px-4 pt-3 pb-1">
-                <p class="text-xs text-gray-400 uppercase tracking-widest font-semibold">My Channels</p>
-                <button
-                    @click="showCreate = !showCreate"
-                    class="text-gray-400 hover:text-white transition-colors text-lg leading-none"
-                    title="Create channel"
-                >+</button>
-            </div>
-
-            <a
-                v-for="ch in myChannels?.data ?? []"
-                :key="ch.id"
-                :href="`/channels/${ch.id}`"
-                class="flex items-center gap-2 px-4 py-2 text-sm text-gray-300 hover:bg-gray-800 hover:text-white transition-colors"
-            >
-                <span class="text-gray-500">#</span>
-                {{ ch.name }}
-            </a>
-
-            <p v-if="!myChannels?.data?.length" class="px-4 py-2 text-xs text-gray-500 italic">
-                No channels yet
-            </p>
-        </template>
-
         <!-- Main content -->
         <div class="flex-1 overflow-y-auto">
             <!-- Flash messages -->
+            <div v-if="flash?.success" class="mx-6 mt-4 p-3 bg-green-50 text-green-700 rounded-lg text-sm">
+                {{ flash.success }}
+            </div>
             <div v-if="flash?.error" class="mx-6 mt-4 p-3 bg-red-50 text-red-700 rounded-lg text-sm">
                 {{ flash.error }}
             </div>
@@ -142,7 +121,7 @@ function joinChannel(channel) {
                             <div class="flex items-center gap-2 mb-0.5">
                                 <span class="text-gray-400">#</span>
                                 <span class="font-medium text-gray-900 text-sm">{{ ch.name }}</span>
-                                <span class="text-xs text-gray-400">· {{ ch.members_count }} members</span>
+                                <span class="text-xs text-gray-400">· {{ ch.members_count }} {{ ch.members_count === 1 ? 'member' : 'members' }}</span>
                             </div>
                             <p v-if="ch.description" class="text-xs text-gray-500 truncate pl-5">
                                 {{ ch.description }}
@@ -169,7 +148,26 @@ function joinChannel(channel) {
                     </div>
                 </div>
 
-                <div v-else class="text-center py-16 text-gray-400">
+                <nav
+                    v-if="(channels?.last_page ?? 1) > 1"
+                    class="flex items-center justify-between mt-4 text-xs text-gray-500"
+                >
+                    <a
+                        v-if="channels.current_page > 1"
+                        :href="`/channels?page=${channels.current_page - 1}`"
+                        class="text-indigo-500 hover:text-indigo-600"
+                    >← Previous</a>
+                    <span v-else />
+                    <span>Page {{ channels.current_page }} of {{ channels.last_page }}</span>
+                    <a
+                        v-if="channels.current_page < channels.last_page"
+                        :href="`/channels?page=${channels.current_page + 1}`"
+                        class="text-indigo-500 hover:text-indigo-600"
+                    >Next →</a>
+                    <span v-else />
+                </nav>
+
+                <div v-else-if="!channels?.data?.length" class="text-center py-16 text-gray-400">
                     <p class="text-4xl mb-3">#</p>
                     <p class="text-sm">No public channels yet.</p>
                     <button

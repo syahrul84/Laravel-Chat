@@ -4,6 +4,7 @@ namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use App\Domains\Chat\Models\Channel;
+use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -11,7 +12,7 @@ use Illuminate\Notifications\Notifiable;
 
 class User extends Authenticatable
 {
-    /** @use HasFactory<\Database\Factories\UserFactory> */
+    /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable;
 
     /**
@@ -51,6 +52,6 @@ class User extends Authenticatable
     public function channels(): BelongsToMany
     {
         return $this->belongsToMany(Channel::class)
-            ->withPivot('joined_at');
+            ->withPivot('joined_at', 'last_read_message_id', 'cleared_message_id', 'hidden_at');
     }
 }

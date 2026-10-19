@@ -1,8 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { mount } from '@vue/test-utils';
 import Channel from '@/Pages/Chat/Channel.vue';
+import { router } from '@inertiajs/vue3';
 
 // Mock @inertiajs/vue3 — Channel.vue uses usePage and router
+const mockFormPost = vi.fn();
 const mockAuthUser = { id: 1, name: 'Test User', email: 'test@test.com' };
 
 vi.mock('@inertiajs/vue3', () => ({
@@ -21,6 +23,13 @@ vi.mock('@inertiajs/vue3', () => ({
         post: vi.fn(),
         visit: vi.fn(),
     },
+    useForm: (initialData) => ({
+        ...initialData,
+        post: mockFormPost,
+        processing: false,
+        errors: {},
+        reset: vi.fn(),
+    }),
     Head: { render: () => null },
     Link: {
         template: '<a><slot/></a>',
@@ -66,8 +75,9 @@ describe('Channel.vue', () => {
         },
     ];
 
-    function mountChannel(propsOverrides = {}) {
+    function mountChannel(propsOverrides = {}, mountOptions = {}) {
         return mount(Channel, {
+            ...mountOptions,
             props: {
                 channel: defaultChannel,
                 messages: { data: [] },
@@ -214,14 +224,6 @@ describe('Channel.vue', () => {
         expect(hasReverse).toBe(false);
     });
 
-    it('renders sidebar with my channels list', () => {
-        const wrapper = mountChannel();
-
-        const sidebar = wrapper.find('.sidebar');
-        expect(sidebar.text()).toContain('My Channels');
-        expect(sidebar.text()).toContain('general');
-        expect(sidebar.text()).toContain('random');
-    });
 
     it('shows the input hint text about Enter and Shift+Enter', () => {
         const wrapper = mountChannel();
@@ -249,4 +251,170 @@ describe('Channel.vue', () => {
         expect(avatars.length).toBeGreaterThan(0);
         expect(avatars[0].text()).toBe('A');
     });
+
+    it('shows a load older button when there are older pages', () => {
+        const wrapper = mountChannel({
+            messages: { data: sampleMessages, current_page: 1, last_page: 2 },
+        });
+
+        expect(wrapper.text()).toContain('Load older messages');
+    });
+
+    it('hides the load older button on the last page', () => {
+        const wrapper = mountChannel({
+            messages: { data: sampleMessages, current_page: 1, last_page: 1 },
+        });
+
+        expect(wrapper.text()).not.toContain('Load older messages');
+    });
+
+    it('prepends older messages when load older is clicked', async () => {
+        const older = { id: 0, content: 'The very first message', created_at: '2026-02-25T09:00:00Z', sender: { id: 2, name: 'Alice' } };
+        global.fetch = vi.fn().mockResolvedValue({
+            ok: true,
+            json: () => Promise.resolve({ data: [older, sampleMessages[0]], current_page: 2, last_page: 2 }),
+        });
+
+        const wrapper = mountChannel({
+            messages: { data: sampleMessages, current_page: 1, last_page: 2 },
+        });
+        const button = wrapper.findAll('button').find((b) => b.text().includes('Load older messages'));
+        await button.trigger('click');
+        await new Promise((r) => setTimeout(r));
+
+        expect(global.fetch).toHaveBeenCalledWith('/channels/10/messages?page=2', expect.any(Object));
+        const contents = wrapper.findAll('.rounded-2xl.px-4').map((el) => el.text());
+        expect(contents[0]).toBe('The very first message');
+        expect(contents.filter((c) => c === 'Hello everyone!')).toHaveLength(1);
+        expect(wrapper.text()).not.toContain('Load older messages');
+    });
+
+    it('leaves the channel when leave is clicked', async () => {
+        const wrapper = mountChannel();
+
+        const button = wrapper.findAll('button').find((b) => b.text() === 'Leave');
+        await button.trigger('click');
+
+        expect(router.post).toHaveBeenCalledWith('/channels/10/leave');
+    });
+
+    it('shows an invite form for private channels', async () => {
+        const wrapper = mountChannel({
+            channel: { ...defaultChannel, type: 'private' },
+        });
+
+        const input = wrapper.find('input[type="email"]');
+        expect(input.exists()).toBe(true);
+        await wrapper.find('form').trigger('submit');
+        expect(mockFormPost).toHaveBeenCalledWith('/channels/10/members', expect.any(Object));
+    });
+
+    it('does not show an invite form for public channels', () => {
+        const wrapper = mountChannel({
+            channel: { ...defaultChannel, type: 'public' },
+        });
+
+        expect(wrapper.find('input[type="email"]').exists()).toBe(false);
+    });
+
+    it('keeps the message box enabled and focused after sending', async () => {
+        global.fetch = vi.fn().mockResolvedValue({
+            ok: true,
+            json: () => Promise.resolve({ id: 99, content: 'hi', created_at: '2026-02-25T10:05:00Z', sender: mockAuthUser }),
+        });
+        const wrapper = mountChannel({}, { attachTo: document.body });
+        const textarea = wrapper.find('textarea');
+
+        await textarea.setValue('hi');
+        await textarea.trigger('keydown', { key: 'Enter' });
+        expect(textarea.element.disabled).toBe(false);
+        await new Promise((r) => setTimeout(r));
+
+        expect(document.activeElement).toBe(textarea.element);
+        wrapper.unmount();
+    });
+
+    it('shows an error and restores the draft when sending fails', async () => {
+        global.fetch = vi.fn().mockResolvedValue({
+            ok: false,
+            json: () => Promise.resolve({ message: 'You must be a member of this channel to send messages.' }),
+        });
+        const wrapper = mountChannel();
+        const textarea = wrapper.find('textarea');
+
+        await textarea.setValue('hi');
+        await textarea.trigger('keydown', { key: 'Enter' });
+        await new Promise((r) => setTimeout(r));
+
+        expect(textarea.element.value).toBe('hi');
+        expect(wrapper.text()).toContain('You must be a member of this channel to send messages.');
+    });
+
+    it('has a back link to the channel list beside the room name', () => {
+        const wrapper = mountChannel();
+
+        const back = wrapper.find('header a[aria-label="Back to channels"]');
+        expect(back.exists()).toBe(true);
+        expect(back.attributes('href')).toBe('/channels');
+    });
+
+    it('sends messages typed while a previous one is still sending, in order', async () => {
+        let release;
+        const firstPending = new Promise((r) => { release = r; });
+        let nextId = 100;
+        global.fetch = vi.fn().mockImplementation(async (url, { body }) => {
+            const { content } = JSON.parse(body);
+            if (content === 'first') await firstPending;
+            return { ok: true, json: () => Promise.resolve({ id: nextId++, content, created_at: '2026-02-25T10:05:00Z', sender: mockAuthUser }) };
+        });
+        const wrapper = mountChannel();
+        const textarea = wrapper.find('textarea');
+
+        await textarea.setValue('first');
+        await textarea.trigger('keydown', { key: 'Enter' });
+        await textarea.setValue('second');
+        await textarea.trigger('keydown', { key: 'Enter' });
+        release();
+        await new Promise((r) => setTimeout(r, 10));
+
+        expect(global.fetch.mock.calls.map(([, opts]) => JSON.parse(opts.body).content)).toEqual(['first', 'second']);
+        expect(wrapper.findAll('.rounded-2xl.leading-relaxed').map((el) => el.text()).slice(-2)).toEqual(['first', 'second']);
+        expect(textarea.element.value).toBe('');
+    });
+
+    it('lists member names with a toggle', async () => {
+        const wrapper = mountChannel({
+            members: [{ id: 1, name: 'Test User' }, { id: 2, name: 'Alice' }],
+        });
+
+        expect(wrapper.find('.members-panel').exists()).toBe(false);
+        await wrapper.find('.members-toggle').trigger('click');
+
+        const names = wrapper.findAll('.members-panel .member').map((m) => m.text());
+        expect(names).toEqual(['Test User(you)', 'Alice']);
+    });
+
+    it('starts a direct message when a member is clicked', async () => {
+        const wrapper = mountChannel({
+            members: [{ id: 1, name: 'Test User' }, { id: 2, name: 'Alice' }],
+        });
+        await wrapper.find('.members-toggle').trigger('click');
+
+        await wrapper.findAll('.members-panel .member')[1].trigger('click');
+
+        expect(router.post).toHaveBeenCalledWith('/direct-messages', { user_id: 2 });
+    });
+
+    it('shows the other person instead of a channel name in a direct message', () => {
+        const wrapper = mountChannel({
+            channel: { id: 50, name: null, type: 'direct' },
+            partner: { id: 2, name: 'Alice' },
+        });
+
+        expect(wrapper.find('header h1').text()).toBe('Alice');
+        expect(wrapper.find('textarea').attributes('placeholder')).toBe('Message Alice');
+        expect(wrapper.find('.members-toggle').exists()).toBe(false);
+        expect(wrapper.findAll('button').some((b) => b.text() === 'Leave')).toBe(false);
+    });
 });
+

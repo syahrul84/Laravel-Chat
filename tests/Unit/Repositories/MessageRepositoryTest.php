@@ -118,4 +118,23 @@ class MessageRepositoryTest extends TestCase
         $this->assertEquals($middle->id, $items[1]->id);
         $this->assertEquals($newest->id, $items[2]->id);
     }
+
+    public function test_first_page_contains_the_newest_messages(): void
+    {
+        $channel = Channel::factory()->create();
+        $user = User::factory()->create();
+
+        $messages = collect(range(1, 5))->map(fn (int $i) => Message::factory()->create([
+            'channel_id' => $channel->id,
+            'sender_id' => $user->id,
+            'created_at' => now()->subMinutes(5 - $i),
+        ]));
+
+        $result = $this->repository->forChannel($channel, perPage: 3);
+
+        $this->assertSame(
+            $messages->slice(2)->pluck('id')->values()->all(),
+            collect($result->items())->pluck('id')->all(),
+        );
+    }
 }

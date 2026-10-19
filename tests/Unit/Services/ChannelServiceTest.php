@@ -90,4 +90,42 @@ class ChannelServiceTest extends TestCase
 
         $this->service->join($channel, $user);
     }
+
+    // ─── Leave ───────────────────────────────────────────────────────────────
+
+    public function test_it_removes_member_on_leave(): void
+    {
+        $user = User::factory()->create();
+        $channel = Channel::factory()->create();
+        $channel->members()->attach($user->id, ['joined_at' => now()]);
+
+        $this->service->leave($channel, $user);
+
+        $this->assertFalse($channel->hasMember($user));
+    }
+
+    // ─── Invite ──────────────────────────────────────────────────────────────
+
+    public function test_member_can_invite_user_to_private_channel(): void
+    {
+        $member = User::factory()->create();
+        $invitee = User::factory()->create();
+        $channel = Channel::factory()->private()->create();
+        $channel->members()->attach($member->id, ['joined_at' => now()]);
+
+        $this->service->invite($channel, $member, $invitee);
+
+        $this->assertTrue($channel->hasMember($invitee));
+    }
+
+    public function test_non_member_cannot_invite(): void
+    {
+        $outsider = User::factory()->create();
+        $invitee = User::factory()->create();
+        $channel = Channel::factory()->private()->create();
+
+        $this->expectException(AuthorizationException::class);
+
+        $this->service->invite($channel, $outsider, $invitee);
+    }
 }
